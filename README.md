@@ -87,9 +87,3 @@ config.py
 ✔ AI-driven content generation  
 ✔ Scalable architecture  
 ✔ Real monetization strategy  
-
----
-
-## 👨‍💻 Author
-
-AI-driven software engineering project focused on scalable content systems.
