@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+keys.env
+logs/
+temp/
+data/history.json
+*.mp3
+*.mp4
+*.webp
+*.png
+*.jpg
+.env
