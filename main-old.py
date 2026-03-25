@@ -12,6 +12,7 @@ from services.history_service import load_history, save_history
 from services.cleanup_service import cleanup_temp_dir
 from config import Config
 
+# ===== LOG CONFIG =====
 log_dir = Path("logs")
 log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -75,39 +76,53 @@ def run() -> None:
         )
         logger.info("Long upload finished: %s", long_upload.get("video_url"))
 
-        shorts = []
-        for reel_type in ["female", "male", "futuristic"]:
-            short_path, short_meta = generate_short(
-                reel_type=reel_type,
-                music_path=music_path,
-                output_path=job_dir / f"short_{reel_type}.mp4",
-                temp_dir=job_dir / f"short_assets_{reel_type}",
-                idea=idea,
-            )
-            short_upload = upload_video_and_thumbnail(
-                video_path=short_path,
-                thumbnail_path=thumbnail_path,
-                title=short_meta["title"],
-                description=short_meta["description"],
-                tags=short_meta["tags"],
-            )
-            logger.info("Short %s uploaded: %s", reel_type, short_upload.get("video_url"))
-            shorts.append({
-                "type": reel_type,
-                "upload": short_upload,
-                "meta": short_meta,
-            })
+        short_a_path, short_a_meta = generate_short(
+            reel_type="A",
+            music_path=music_path,
+            output_path=job_dir / "short_A.mp4",
+            temp_dir=job_dir / "short_assets_A",
+        )
+        short_a_upload = upload_video_and_thumbnail(
+            video_path=short_a_path,
+            thumbnail_path=thumbnail_path,
+            title=short_a_meta["title"],
+            description=short_a_meta["description"],
+            tags=short_a_meta["tags"],
+        )
+        logger.info("Short A uploaded: %s", short_a_upload.get("video_url"))
+
+        short_b_path, short_b_meta = generate_short(
+            reel_type="B",
+            music_path=music_path,
+            output_path=job_dir / "short_B.mp4",
+            temp_dir=job_dir / "short_assets_B",
+        )
+        short_b_upload = upload_video_and_thumbnail(
+            video_path=short_b_path,
+            thumbnail_path=thumbnail_path,
+            title=short_b_meta["title"],
+            description=short_b_meta["description"],
+            tags=short_b_meta["tags"],
+        )
+        logger.info("Short B uploaded: %s", short_b_upload.get("video_url"))
 
         save_history({
             "created_at_utc": datetime.now(timezone.utc).isoformat(),
             "title": idea["title"],
-            "theme": idea.get("theme"),
+            "theme": idea["theme"],
             "duration_minutes": idea["duration_minutes"],
             "tags": idea["tags"],
             "youtube_video_id": long_upload["video_id"],
             "youtube_video_url": long_upload["video_url"],
             "music_meta": music_meta,
-            "shorts": shorts,
+            "short_a": {
+                "upload": short_a_upload,
+                "meta": short_a_meta,
+            },
+            "short_b": {
+                "upload": short_b_upload,
+                "meta": short_b_meta,
+            },
         })
         logger.info("History updated")
 
