@@ -2,6 +2,13 @@ venv/
 __pycache__/
 *.pyc
 keys.env
+cron.log
+logs/
+temp/
+data/
+__pycache__/
+*.pyc
+.env
 logs/
 temp/
 data/history.json

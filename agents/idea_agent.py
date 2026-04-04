@@ -1,80 +1,187 @@
-import random
 import json
-from datetime import datetime
-from pathlib import Path
+import logging
+import random
+import re
+from typing import Any
 
-HISTORY_PATH = Path("data/history.json")
+from google import genai
+from config import Config
 
-WORLD_LOCATIONS = [
-    "Eiffel Tower Paris",
-    "Times Square New York",
-    "Shibuya Tokyo neon street",
-    "Santorini Greece sunset",
-    "Dubai skyline night",
-    "Swiss Alps mountains",
-    "Bali beach sunset",
-    "London city skyline",
-    "Sydney Opera House",
-    "Grand Canyon view",
-    "Maldives beach",
-    "Hong Kong skyline",
-    "Rio de Janeiro Christ the Redeemer",
-    "Iceland waterfalls",
-    "Venice canals",
+logger = logging.getLogger(__name__)
+
+TIMES_OF_DAY = [
+    "bright morning",
+    "sunny afternoon",
+    "golden sunset",
+    "blue hour",
+    "late night",
 ]
 
-BASE_TAGS = ["music to work", "coding music", "focus music", "deep work", "chill"]
+PLACES = [
+    "beach house workspace with ocean view",
+    "mountain cabin workspace with valley view",
+    "modern city apartment with skyline view",
+    "forest retreat workspace surrounded by trees",
+    "minimal home office with large windows",
+    "startup office with panoramic buildings",
+    "cozy room with a wide window facing nature",
+]
 
-def _load_history():
-    if not HISTORY_PATH.exists():
-        return []
-    with open(HISTORY_PATH, "r") as f:
-        return json.load(f)
+WEATHER = [
+    "clear sky",
+    "light rain",
+    "soft fog",
+    "snow falling outside",
+    "warm sunlight",
+    "cloudy atmosphere",
+]
 
-def _save_history(history):
-    HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(HISTORY_PATH, "w") as f:
-        json.dump(history[-20:], f, indent=2)
+MOODS = [
+    "deep focus",
+    "calm concentration",
+    "creative flow",
+    "immersive coding session",
+    "productive build session",
+]
 
-def _get_recent_locations(history, limit=10):
-    return [item.get("location") for item in history[-limit:] if item.get("location")]
+SYSTEM_PROMPT = """
+You are planning a faceless YouTube video for a channel called Vibe Coding Sessions.
 
-def _pick_new_location(history):
-    recent = set(_get_recent_locations(history))
-    options = [loc for loc in WORLD_LOCATIONS if loc not in recent]
+Output strict JSON only with these fields:
+theme, title, music_prompt, visual_prompt, description, tags, duration_minutes
 
-    if not options:
-        options = WORLD_LOCATIONS
+Rules:
+- The image must always show a software developer working on a laptop with code visible.
+- The environment must vary naturally across day, sunset, night, beach, mountain, forest, office, and home settings.
+- Avoid repeating city at night too often.
+- No text in the image.
+- Music must be instrumental only, no vocals, no lyrics.
+- Titles must be natural, YouTube-friendly, and specific.
+- Keep tags short and relevant.
+- duration_minutes must be an integer.
+"""
 
-    return random.choice(options)
 
-def generate_video_idea():
-    history = _load_history()
+def _extract_json(text: str) -> dict[str, Any]:
+    cleaned = text.strip()
+    cleaned = re.sub(r"^```json\s*", "", cleaned)
+    cleaned = re.sub(r"```$", "", cleaned).strip()
+    return json.loads(cleaned)
 
-    location = _pick_new_location(history)
 
-    title = f"{location} Coding Flow | 3 Hours of Deep Work"
-
-    description = (
-        f"Focus music for deep work while coding in front of {location}.\n\n"
-        "Perfect for programming, studying, and productivity sessions."
+def _pick_fallback_scenario() -> tuple[str, str, str, str]:
+    return (
+        random.choice(TIMES_OF_DAY),
+        random.choice(PLACES),
+        random.choice(WEATHER),
+        random.choice(MOODS),
     )
 
-    prompt = (
-        f"A software developer coding on a laptop facing {location}, "
-        "cinematic lighting, ultra realistic, 4k, no text"
+
+def _fallback_idea(history: list[dict[str, Any]]) -> dict[str, Any]:
+    time_of_day, place, weather, mood = _pick_fallback_scenario()
+
+    theme = f"{mood.title()} in a {place}"
+    title = f"Coding Focus Music • {place.title()} • {time_of_day.title()}".replace("Workspace", "").strip()
+
+    visual_prompt = (
+        f"A software developer working on a laptop with code visible on screen, "
+        f"in a {place}, during {time_of_day}, with {weather}, cinematic lighting, "
+        f"immersive atmosphere, high quality digital illustration, no text."
+    )
+
+    music_prompt = (
+        f"Instrumental ambient electronic music for {mood}, calm and immersive, "
+        f"designed for programming and deep work, no vocals, no lyrics, smooth progression."
     )
 
     idea = {
-        "title": title,
-        "description": description,
-        "tags": BASE_TAGS,
-        "location": location,
-        "prompt": prompt,
-        "created_at": datetime.utcnow().isoformat()
+        "theme": theme[:120],
+        "title": title[:95],
+        "music_prompt": music_prompt,
+        "visual_prompt": visual_prompt,
+        "description": (
+            "Ambient coding music for developers, makers, and deep work sessions. "
+            "Designed for focus, flow, and long programming blocks."
+        ),
+        "tags": [
+            "coding music",
+            "focus music",
+            "programming",
+            "deep work",
+            "ambient music",
+        ],
+        "duration_minutes": Config.video_duration_minutes,
+    }
+    logger.info(
+        "Fallback idea generated | title=%r | theme=%r | duration_minutes=%d",
+        idea["title"], idea["theme"], idea["duration_minutes"],
+    )
+    return idea
+
+
+def generate_video_idea(history: list[dict[str, Any]]) -> dict[str, Any]:
+    logger.info("Generating video idea | history_entries=%d | gemini_key_set=%s",
+                len(history), bool(Config.gemini_api_key))
+
+    if not Config.gemini_api_key:
+        logger.warning("GEMINI_API_KEY not set — using fallback idea generator.")
+        return _fallback_idea(history)
+
+    recent = [
+        {
+            "title": item.get("title"),
+            "theme": item.get("theme"),
+        }
+        for item in history[-12:]
+    ]
+    logger.info("Passing %d recent videos to Gemini for context", len(recent))
+
+    user_prompt = {
+        "recent_videos": recent,
+        "times_of_day": TIMES_OF_DAY,
+        "places": PLACES,
+        "weather_options": WEATHER,
+        "moods": MOODS,
+        "target_channel": "Vibe Coding Sessions",
+        "duration_minutes": Config.video_duration_minutes,
     }
 
-    history.append(idea)
-    _save_history(history)
+    try:
+        logger.info("Calling Gemini | model=%s", Config.gemini_text_model)
+        client = genai.Client(api_key=Config.gemini_api_key)
+        response = client.models.generate_content(
+            model=Config.gemini_text_model,
+            contents=[
+                {"role": "user", "parts": [{"text": SYSTEM_PROMPT}]},
+                {"role": "user", "parts": [{"text": json.dumps(user_prompt, ensure_ascii=False)}]},
+            ],
+        )
 
-    return idea
+        text = getattr(response, "text", None)
+        if not text:
+            raise RuntimeError("Gemini returned an empty response — no text content.")
+
+        logger.debug("Gemini raw response: %s", text[:500])
+        idea = _extract_json(text)
+        idea["duration_minutes"] = int(idea.get("duration_minutes") or Config.video_duration_minutes)
+
+        if not isinstance(idea.get("tags"), list):
+            logger.warning("Gemini returned non-list tags, using defaults.")
+            idea["tags"] = [
+                "coding music",
+                "focus music",
+                "programming",
+                "deep work",
+                "ambient music",
+            ]
+
+        logger.info(
+            "Gemini idea accepted | title=%r | theme=%r | duration_minutes=%d | tags=%s",
+            idea.get("title"), idea.get("theme"), idea.get("duration_minutes"), idea.get("tags"),
+        )
+        return idea
+
+    except Exception as exc:
+        logger.warning("Gemini idea generation failed, falling back | error=%s", exc)
+        return _fallback_idea(history)
