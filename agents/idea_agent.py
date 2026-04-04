@@ -1,92 +1,80 @@
-# IDEA AGENT V4 - GEMINI + SMART POST PROCESSING
-
+import random
 import json
-import logging
-import re
-from google import genai
-from config import Config
+from datetime import datetime
+from pathlib import Path
 
-logger = logging.getLogger(__name__)
+HISTORY_PATH = Path("data/history.json")
 
-FIXED_SUFFIX = "3 Hours of Deep Work"
-
-BASE_HASHTAGS = [
-    "#musictowork",
-    "#codingmusic",
-    "#focusmusic",
-    "#deepwork"
+WORLD_LOCATIONS = [
+    "Eiffel Tower Paris",
+    "Times Square New York",
+    "Shibuya Tokyo neon street",
+    "Santorini Greece sunset",
+    "Dubai skyline night",
+    "Swiss Alps mountains",
+    "Bali beach sunset",
+    "London city skyline",
+    "Sydney Opera House",
+    "Grand Canyon view",
+    "Maldives beach",
+    "Hong Kong skyline",
+    "Rio de Janeiro Christ the Redeemer",
+    "Iceland waterfalls",
+    "Venice canals",
 ]
 
-CONTEXT_MAP = {
-    "beach": ["#beachvibes", "#chillcoding"],
-    "rain": ["#rainymood", "#nightcoding"],
-    "night": ["#nightcoding"],
-    "forest": ["#forestvibes", "#naturefocus"],
-    "mountain": ["#mountainvibes"],
-    "sun": ["#daycoding"],
-    "city": ["#cityvibes"]
-}
+BASE_TAGS = ["music to work", "coding music", "focus music", "deep work", "chill"]
 
-SYSTEM_PROMPT = """
-Generate a YouTube video idea for a coding music channel.
+def _load_history():
+    if not HISTORY_PATH.exists():
+        return []
+    with open(HISTORY_PATH, "r") as f:
+        return json.load(f)
 
-Return JSON with:
-theme, title, description, music_prompt, visual_prompt, tags
+def _save_history(history):
+    HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(HISTORY_PATH, "w") as f:
+        json.dump(history[-20:], f, indent=2)
 
-Rules:
-- Always include a developer working on laptop
-- No text in image
-- Music must be instrumental
-- Vary environment (day, beach, forest, etc)
-"""
+def _get_recent_locations(history, limit=10):
+    return [item.get("location") for item in history[-limit:] if item.get("location")]
 
+def _pick_new_location(history):
+    recent = set(_get_recent_locations(history))
+    options = [loc for loc in WORLD_LOCATIONS if loc not in recent]
 
-def _extract_json(text):
-    text = text.strip()
-    text = re.sub(r"^```json", "", text)
-    text = re.sub(r"```$", "", text)
-    return json.loads(text)
+    if not options:
+        options = WORLD_LOCATIONS
 
+    return random.choice(options)
 
-def _fix_title(title):
-    title = re.sub(r"\|.*$", "", title).strip()
-    return f"{title} | {FIXED_SUFFIX}"
+def generate_video_idea():
+    history = _load_history()
 
+    location = _pick_new_location(history)
 
-def _generate_hashtags(text):
-    tags = BASE_HASHTAGS.copy()
-    lower = text.lower()
+    title = f"{location} Coding Flow | 3 Hours of Deep Work"
 
-    for key, values in CONTEXT_MAP.items():
-        if key in lower:
-            tags.extend(values)
-
-    return list(dict.fromkeys(tags))
-
-
-def generate_video_idea(history):
-    if not Config.gemini_api_key:
-        raise RuntimeError("Missing GEMINI_API_KEY")
-
-    client = genai.Client(api_key=Config.gemini_api_key)
-
-    response = client.models.generate_content(
-        model=Config.gemini_text_model,
-        contents=SYSTEM_PROMPT
+    description = (
+        f"Focus music for deep work while coding in front of {location}.\n\n"
+        "Perfect for programming, studying, and productivity sessions."
     )
 
-    data = _extract_json(response.text)
+    prompt = (
+        f"A software developer coding on a laptop facing {location}, "
+        "cinematic lighting, ultra realistic, 4k, no text"
+    )
 
-    title = _fix_title(data.get("title", "Coding Session"))
-    context_text = data.get("theme", "") + " " + data.get("description", "")
-
-    hashtags = _generate_hashtags(context_text)
-
-    return {
+    idea = {
         "title": title,
-        "description": data.get("description", "") + "\n\n" + " ".join(hashtags),
-        "tags": [h.replace("#","") for h in hashtags],
-        "music_prompt": data.get("music_prompt", ""),
-        "visual_prompt": data.get("visual_prompt", ""),
-        "duration_minutes": Config.video_duration_minutes
+        "description": description,
+        "tags": BASE_TAGS,
+        "location": location,
+        "prompt": prompt,
+        "created_at": datetime.utcnow().isoformat()
     }
+
+    history.append(idea)
+    _save_history(history)
+
+    return idea

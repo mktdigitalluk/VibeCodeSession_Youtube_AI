@@ -35,6 +35,33 @@ HOOKS = {
     ],
 }
 
+PEXELS_QUERY_MAP = {
+    "female": [
+        "attractive female software developer coding on laptop modern aesthetic setup neon lighting 4k cinematic",
+        "female developer coding aesthetic setup macbook 4k modern workspace portrait",
+        "young woman programmer coding dark mode setup neon lights 4k vertical",
+        "female software engineer working on laptop modern desk rgb lighting 4k portrait",
+    ],
+    "male": [
+        "young male software developer coding on macbook modern workspace neon lights 4k cinematic",
+        "male programmer coding dark mode aesthetic setup rgb lighting 4k portrait",
+        "software engineer working on laptop modern minimal desk 4k vertical",
+        "young developer coding modern workspace cinematic lighting 4k portrait",
+    ],
+    "futuristic": [
+        "futuristic programmer holographic interface cyberpunk coding environment 4k cinematic",
+        "cyberpunk coding setup glowing screens futuristic workspace 4k portrait",
+        "abstract digital programmer environment neon code futuristic 4k vertical",
+        "ai futuristic workstation glowing interface cyber aesthetic 4k portrait",
+    ],
+}
+
+HASHTAG_MAP = {
+    "female": ["#developer", "#coding", "#aesthetic", "#modernworkspace"],
+    "male": ["#developer", "#programming", "#darkmode", "#codingvibes"],
+    "futuristic": ["#futuristic", "#ambient", "#lofi", "#cyberpunk"],
+}
+
 
 def _run(cmd):
     cmd_str = [str(x) for x in cmd]
@@ -89,14 +116,7 @@ def _build_short_hashtags(idea, reel_type):
         "#chill",
     ]
 
-    if reel_type == "female":
-        extra = ["#developer", "#coding"]
-    elif reel_type == "male":
-        extra = ["#developer", "#programming"]
-    else:
-        extra = ["#futuristic", "#ambient", "#lofi"]
-
-    for item in extra:
+    for item in HASHTAG_MAP[reel_type]:
         if item not in ordered:
             ordered.append(item)
 
@@ -136,13 +156,7 @@ def _short_description(reel_type, idea):
 
 def _short_tags(reel_type, idea):
     common = ["musictowork", "coding music", "focus music", "deep work", "shorts", "chill"]
-
-    if reel_type == "female":
-        variant = ["female developer", "developer"]
-    elif reel_type == "male":
-        variant = ["male developer", "developer"]
-    else:
-        variant = ["futuristic", "ambient", "lofi"]
+    variant = [item.replace("#", "") for item in HASHTAG_MAP[reel_type]]
 
     merged = (common + variant + list(idea.get("tags") or [])) if idea else (common + variant)
 
@@ -156,19 +170,25 @@ def _short_tags(reel_type, idea):
     return result
 
 
-def _map_reel_type_for_pexels(reel_type):
-    # Mantém compatibilidade com pexels_service atual (A/B).
-    if reel_type in ("female", "futuristic"):
-        return "A"
-    return "B"
+def _fetch_modern_clip(reel_type, output_path: Path):
+    queries = PEXELS_QUERY_MAP[reel_type]
+    errors = []
+
+    for query in queries:
+        try:
+            return fetch_reel_source_clip(query, output_path)
+        except Exception as exc:
+            logger.warning("Pexels query failed for %s: %s", query, exc)
+            errors.append(f"{query}: {exc}")
+
+    raise RuntimeError("All modern Pexels queries failed: " + " | ".join(errors))
 
 
 def generate_short(reel_type, music_path, output_path: Path, temp_dir: Path, idea=None):
     temp_dir.mkdir(parents=True, exist_ok=True)
     source_clip_path = temp_dir / f"pexels_source_{reel_type}.mp4"
 
-    pexels_type = _map_reel_type_for_pexels(reel_type)
-    clip_path, pexels_meta = fetch_reel_source_clip(pexels_type, source_clip_path)
+    clip_path, pexels_meta = _fetch_modern_clip(reel_type, source_clip_path)
 
     clip_duration = _probe_duration(clip_path)
     if clip_duration <= Config.short_duration_seconds:
