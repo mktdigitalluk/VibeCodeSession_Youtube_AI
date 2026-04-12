@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime
 from pathlib import Path
 from config import Config
 
@@ -16,7 +17,12 @@ def load_history() -> list:
         logger.info("History loaded | entries=%d | path=%s", len(data), path)
         return data
     except Exception as exc:
-        logger.warning("Failed to parse history file, starting fresh | path=%s | error=%s", path, exc)
+        backup = path.with_suffix(f".corrupt_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        try:
+            path.rename(backup)
+        except Exception:
+            backup = None
+        logger.warning("Failed to parse history file, starting fresh | path=%s | backup=%s | error=%s", path, backup, exc)
         return []
 
 
@@ -26,9 +32,5 @@ def save_history(entry: dict) -> None:
     history = load_history()
     history.append(entry)
     history = history[-Config.history_size:]
-    try:
-        path.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
-        logger.info("History saved | total_entries=%d | path=%s", len(history), path)
-    except Exception as exc:
-        logger.error("Failed to save history | path=%s | error=%s", path, exc)
-        raise
+    path.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+    logger.info("History saved | total_entries=%d | path=%s", len(history), path)

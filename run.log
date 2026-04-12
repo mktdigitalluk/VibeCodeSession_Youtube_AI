@@ -1,0 +1,93 @@
+nohup: ignoring input
+2026-04-04 17:47:03,646 | INFO | services.state_service | No existing state for job_id=job_20260404 — starting fresh.
+2026-04-04 17:47:03,647 | INFO | services.state_service | New state initialised | job_id=job_20260404
+2026-04-04 17:47:03,647 | INFO | __main__ | ============================================================
+2026-04-04 17:47:03,647 | INFO | __main__ | PIPELINE START | job_id=job_20260404 | log=logs/run_20260404_174703.log
+2026-04-04 17:47:03,647 | INFO | __main__ | Fresh run — no completed steps yet.
+2026-04-04 17:47:03,647 | INFO | __main__ | ============================================================
+2026-04-04 17:47:03,647 | INFO | __main__ | [1/8] Generating video idea
+2026-04-04 17:47:03,648 | INFO | services.history_service | History loaded | entries=21 | path=data/history.json
+2026-04-04 17:47:03,648 | INFO | agents.idea_agent | Generating video idea | history_entries=21 | gemini_key_set=True
+2026-04-04 17:47:03,865 | INFO | google_genai.models | AFC is enabled with max remote calls: 10.
+2026-04-04 17:47:11,740 | INFO | httpx | HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-04-04 17:47:11,743 | INFO | agents.idea_agent | Gemini idea accepted | title='Blue Hour Coding in Dubai, UAE | Deep Focus for Developers (180 Hours)' | place='Dubai, UAE' | duration_minutes=180
+2026-04-04 17:47:11,745 | INFO | services.state_service | Step marked done | step=idea | job_id=job_20260404
+2026-04-04 17:47:11,745 | INFO | __main__ | [1/8] DONE idea | title='Blue Hour Coding in Dubai, UAE | Deep Focus for Developers (180 Hours)' | theme='Productive Build Session coding in Dubai, UAE' | duration_minutes=180
+2026-04-04 17:47:11,745 | INFO | __main__ | [2/8] Generating thumbnail (Replicate Flux 16:9)
+2026-04-04 17:47:11,745 | INFO | services.image_service | Submitting thumbnail to Replicate Flux | model=black-forest-labs/flux-dev
+2026-04-04 17:47:13,675 | INFO | httpx | HTTP Request: POST https://api.replicate.com/v1/models/black-forest-labs/flux-dev/predictions "HTTP/1.1 201 Created"
+2026-04-04 17:47:13,678 | INFO | services.image_service | Replicate responded, writing WebP to disk: temp/job_20260404/thumbnail.webp
+2026-04-04 17:47:13,877 | INFO | httpx | HTTP Request: GET https://replicate.delivery/xezq/xYmF10EsLWrPHZhiGtzyUQAPTTYiTzZbEadnuxvWGVY0q8lF/out-0.webp "HTTP/1.1 200 OK"
+2026-04-04 17:47:13,981 | INFO | services.image_service | WebP thumbnail saved | path=temp/job_20260404/thumbnail.webp | size_kb=86.2
+2026-04-04 17:47:13,981 | INFO | services.image_service | Converting WebP → JPEG for YouTube compatibility: temp/job_20260404/thumbnail.jpg
+2026-04-04 17:47:14,070 | INFO | services.image_service | JPEG thumbnail saved | path=temp/job_20260404/thumbnail.jpg | size_kb=148.9
+2026-04-04 17:47:14,070 | INFO | services.state_service | Step marked done | step=thumbnail | job_id=job_20260404
+2026-04-04 17:47:14,071 | INFO | __main__ | [2/8] DONE thumbnail | path=temp/job_20260404/thumbnail.jpg | size_kb=148.9
+2026-04-04 17:47:14,071 | INFO | __main__ | [3/8] Generating music (Kie.ai)
+2026-04-04 17:47:14,071 | INFO | services.music_service | Submitting music generation job to Kie.ai | model=V4_5
+2026-04-04 17:47:14,399 | INFO | services.music_service | Kie.ai generate response | code=200 | body={'code': 200, 'msg': 'success', 'data': {'taskId': 'f1500d06895fdb1536e4713ae3e16b9d'}}
+2026-04-04 17:47:14,399 | INFO | services.music_service | Kie.ai job accepted | task_id=f1500d06895fdb1536e4713ae3e16b9d | will poll every 20s, timeout=900s
+2026-04-04 17:47:14,647 | INFO | services.music_service | Kie.ai poll #1 | elapsed=0s | status='pending' | task_id=f1500d06895fdb1536e4713ae3e16b9d
+2026-04-04 17:47:14,648 | INFO | services.music_service | Kie.ai still processing | status='pending' | poll=1 | elapsed=0s
+2026-04-04 17:47:34,912 | INFO | services.music_service | Kie.ai poll #2 | elapsed=20s | status='pending' | task_id=f1500d06895fdb1536e4713ae3e16b9d
+2026-04-04 17:47:34,912 | INFO | services.music_service | Kie.ai still processing | status='pending' | poll=2 | elapsed=20s
+2026-04-04 17:47:55,185 | INFO | services.music_service | Kie.ai poll #3 | elapsed=40s | status='pending' | task_id=f1500d06895fdb1536e4713ae3e16b9d
+2026-04-04 17:47:55,185 | INFO | services.music_service | Kie.ai still processing | status='pending' | poll=3 | elapsed=40s
+2026-04-04 17:48:15,461 | INFO | services.music_service | Kie.ai poll #4 | elapsed=60s | status='text_success' | task_id=f1500d06895fdb1536e4713ae3e16b9d
+2026-04-04 17:48:15,461 | INFO | services.music_service | Kie.ai still processing | status='text_success' | poll=4 | elapsed=60s
+2026-04-04 17:48:35,728 | INFO | services.music_service | Kie.ai poll #5 | elapsed=81s | status='text_success' | task_id=f1500d06895fdb1536e4713ae3e16b9d
+2026-04-04 17:48:35,728 | INFO | services.music_service | Kie.ai still processing | status='text_success' | poll=5 | elapsed=81s
+2026-04-04 17:48:55,988 | INFO | services.music_service | Kie.ai poll #6 | elapsed=101s | status='text_success' | task_id=f1500d06895fdb1536e4713ae3e16b9d
+2026-04-04 17:48:55,988 | INFO | services.music_service | Kie.ai still processing | status='text_success' | poll=6 | elapsed=101s
+2026-04-04 17:49:16,261 | INFO | services.music_service | Kie.ai poll #7 | elapsed=121s | status='success' | task_id=f1500d06895fdb1536e4713ae3e16b9d
+2026-04-04 17:49:16,261 | INFO | services.music_service | Kie.ai music generation complete | audio_url=https://tempfile.aiquickdraw.com/r/834e11032c3e49598bc63f958c0a40c9.mp3
+2026-04-04 17:49:16,261 | INFO | services.music_service | Downloading audio file | url=https://tempfile.aiquickdraw.com/r/834e11032c3e49598bc63f958c0a40c9.mp3 | dest=temp/job_20260404/music.mp3
+2026-04-04 17:49:16,841 | INFO | services.music_service | Audio download complete | size_kb=3232.5 | path=temp/job_20260404/music.mp3
+2026-04-04 17:49:16,849 | INFO | services.state_service | Step marked done | step=music | job_id=job_20260404
+2026-04-04 17:49:16,849 | INFO | __main__ | [3/8] DONE music | path=temp/job_20260404/music.mp3 | size_kb=3232.5
+2026-04-04 17:49:16,849 | INFO | __main__ | [4/8] Creating long video | duration=10800s (180min) | loop_audio=True
+2026-04-04 17:49:16,849 | INFO | services.video_service | Creating video | image=temp/job_20260404/thumbnail.jpg | audio=temp/job_20260404/music.mp3 | duration_seconds=10800 | loop_audio=True
+2026-04-04 17:49:16,850 | INFO | services.video_service | ffmpeg command: ffmpeg -y -stream_loop -1 -i temp/job_20260404/music.mp3 -t 10800 -c:a libmp3lame /tmp/tmp73252uc8/looped_audio.mp3
+2026-04-04 18:02:51,938 | INFO | services.video_service | Mode: loop audio to exact target duration
+2026-04-04 18:02:51,938 | INFO | services.video_service | ffmpeg command: ffmpeg -y -loop 1 -framerate 2 -i temp/job_20260404/thumbnail.jpg -i /tmp/tmp73252uc8/looped_audio.mp3 -t 10800 -c:v libx264 -preset veryfast -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -movflags +faststart temp/job_20260404/video.mp4
+2026-04-04 18:34:45,969 | INFO | services.video_service | Video created | path=temp/job_20260404/video.mp4 | size_mb=268.4
+2026-04-04 18:34:46,080 | INFO | services.state_service | Step marked done | step=video | job_id=job_20260404
+2026-04-04 18:34:46,080 | INFO | __main__ | [4/8] DONE video | path=temp/job_20260404/video.mp4 | size_mb=268.4
+2026-04-04 18:34:46,081 | INFO | __main__ | [5/8] Uploading long video | title='Blue Hour Coding in Dubai, UAE | Deep Focus for Developers (180 Hours)'
+2026-04-04 18:34:46,081 | INFO | services.youtube_service | Refreshing YouTube OAuth token
+2026-04-04 18:34:46,340 | INFO | services.youtube_service | YouTube OAuth token refreshed successfully
+2026-04-04 18:34:46,345 | INFO | googleapiclient.discovery_cache | file_cache is only supported with oauth2client<4.0.0
+2026-04-04 18:34:46,352 | INFO | services.youtube_service | Starting YouTube upload | title='Blue Hour Coding in Dubai, UAE | Deep Focus for Developers (' | privacy=public | video_path=temp/job_20260404/video.mp4
+2026-04-04 18:35:35,904 | INFO | services.youtube_service | Video uploaded successfully | video_id=N75h4W77FSA | chunks=1
+2026-04-04 18:35:35,904 | INFO | services.youtube_service | Setting thumbnail | video_id=N75h4W77FSA | thumbnail=temp/job_20260404/thumbnail.jpg
+2026-04-04 18:35:38,722 | INFO | services.youtube_service | Thumbnail set successfully | video_id=N75h4W77FSA
+2026-04-04 18:35:38,722 | INFO | services.youtube_service | Upload complete | url=https://www.youtube.com/watch?v=N75h4W77FSA
+2026-04-04 18:35:38,725 | INFO | services.state_service | Step marked done | step=upload_long | job_id=job_20260404
+2026-04-04 18:35:38,725 | INFO | __main__ | [5/8] DONE upload_long | video_id=N75h4W77FSA | url=https://www.youtube.com/watch?v=N75h4W77FSA
+2026-04-04 18:35:38,725 | INFO | __main__ | [6/8] Generating short video (Replicate Flux 9:16)
+2026-04-04 18:35:40,660 | INFO | httpx | HTTP Request: POST https://api.replicate.com/v1/models/black-forest-labs/flux-dev/predictions "HTTP/1.1 201 Created"
+2026-04-04 18:35:40,961 | INFO | httpx | HTTP Request: GET https://replicate.delivery/xezq/fH5MpDsyng3hByvWOCo3LHCOGoHzuuxfYeukwd2Hp6FYxmvsA/out-0.webp "HTTP/1.1 200 OK"
+2026-04-04 18:35:41,456 | INFO | services.short_service | ffmpeg: ffmpeg -y -loop 1 -framerate 2 -i temp/job_20260404/short_assets/short_image.jpg -ss 30 -t 20 -i temp/job_20260404/music.mp3 -vf scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30 -map 0:v:0 -map 1:a:0 -c:v libx264 -preset veryfast -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -movflags +faststart -shortest temp/job_20260404/short.mp4
+2026-04-04 18:36:10,573 | INFO | services.state_service | Step marked done | step=short | job_id=job_20260404
+2026-04-04 18:36:10,573 | INFO | __main__ | [6/8] DONE short | path=temp/job_20260404/short.mp4 | title='Blue Hour coding in Dubai, UAE #shorts'
+2026-04-04 18:36:10,573 | INFO | __main__ | [7/8] Uploading short | title='Blue Hour coding in Dubai, UAE #shorts'
+2026-04-04 18:36:10,573 | INFO | services.youtube_service | Refreshing YouTube OAuth token
+2026-04-04 18:36:10,912 | INFO | services.youtube_service | YouTube OAuth token refreshed successfully
+2026-04-04 18:36:10,913 | INFO | googleapiclient.discovery_cache | file_cache is only supported with oauth2client<4.0.0
+2026-04-04 18:36:10,920 | INFO | services.youtube_service | Starting YouTube upload | title='Blue Hour coding in Dubai, UAE #shorts' | privacy=public | video_path=temp/job_20260404/short.mp4
+2026-04-04 18:36:13,472 | INFO | services.youtube_service | Video uploaded successfully | video_id=iMeFNTBujqk | chunks=1
+2026-04-04 18:36:13,472 | INFO | services.youtube_service | Setting thumbnail | video_id=iMeFNTBujqk | thumbnail=temp/job_20260404/thumbnail.jpg
+2026-04-04 18:36:15,688 | INFO | services.youtube_service | Thumbnail set successfully | video_id=iMeFNTBujqk
+2026-04-04 18:36:15,688 | INFO | services.youtube_service | Upload complete | url=https://www.youtube.com/watch?v=iMeFNTBujqk
+2026-04-04 18:36:15,688 | INFO | services.state_service | Step marked done | step=upload_short | job_id=job_20260404
+2026-04-04 18:36:15,689 | INFO | __main__ | [7/8] DONE upload_short | video_id=iMeFNTBujqk | url=https://www.youtube.com/watch?v=iMeFNTBujqk
+2026-04-04 18:36:15,689 | INFO | __main__ | [8/8] Saving history
+2026-04-04 18:36:15,690 | INFO | services.history_service | History loaded | entries=21 | path=data/history.json
+2026-04-04 18:36:15,693 | INFO | services.history_service | History saved | total_entries=20 | path=data/history.json
+2026-04-04 18:36:15,694 | INFO | services.state_service | Step marked done | step=history | job_id=job_20260404
+2026-04-04 18:36:15,694 | INFO | __main__ | [8/8] DONE history
+2026-04-04 18:36:15,694 | INFO | __main__ | Cleanup skipped (CLEANUP_ON_SUCCESS=false) | files at=temp/job_20260404
+2026-04-04 18:36:15,694 | INFO | __main__ | ============================================================
+2026-04-04 18:36:15,694 | INFO | __main__ | PIPELINE COMPLETE | job_id=job_20260404
+2026-04-04 18:36:15,694 | INFO | __main__ | State preserved at: data/state_job_20260404.json
+2026-04-04 18:36:15,695 | INFO | __main__ | ============================================================

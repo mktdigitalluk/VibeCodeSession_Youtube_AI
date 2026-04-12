@@ -5,6 +5,7 @@ import re
 from typing import Any
 
 from google import genai
+
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -15,16 +16,6 @@ TIMES_OF_DAY = [
     "golden sunset",
     "blue hour",
     "late night",
-]
-
-PLACES = [
-    "beach house workspace with ocean view",
-    "mountain cabin workspace with valley view",
-    "modern city apartment with skyline view",
-    "forest retreat workspace surrounded by trees",
-    "minimal home office with large windows",
-    "startup office with panoramic buildings",
-    "cozy room with a wide window facing nature",
 ]
 
 WEATHER = [
@@ -44,19 +35,37 @@ MOODS = [
     "productive build session",
 ]
 
+WORLD_PLACES = [
+    {"id": "tokyo_jp", "place": "Tokyo, Japan", "scene": "neon apartment overlooking Shibuya"},
+    {"id": "hong_kong_hk", "place": "Hong Kong", "scene": "high-rise apartment overlooking Victoria Harbour"},
+    {"id": "new_york_us", "place": "New York, USA", "scene": "loft workspace overlooking Manhattan skyline"},
+    {"id": "paris_fr", "place": "Paris, France", "scene": "balcony workspace with Eiffel Tower in the distance"},
+    {"id": "london_uk", "place": "London, UK", "scene": "cozy flat workspace with rainy city view"},
+    {"id": "dubai_ae", "place": "Dubai, UAE", "scene": "luxury apartment workspace above the downtown skyline"},
+    {"id": "singapore_sg", "place": "Singapore", "scene": "modern workspace with Marina Bay skyline"},
+    {"id": "sao_paulo_br", "place": "São Paulo, Brazil", "scene": "modern apartment office overlooking Avenida Paulista"},
+    {"id": "seoul_kr", "place": "Seoul, South Korea", "scene": "night studio workspace with dense city lights"},
+    {"id": "barcelona_es", "place": "Barcelona, Spain", "scene": "sunlit loft near the old city rooftops"},
+    {"id": "vancouver_ca", "place": "Vancouver, Canada", "scene": "glass apartment workspace with mountains and harbor"},
+    {"id": "sydney_au", "place": "Sydney, Australia", "scene": "harbour-side apartment workspace with city lights"},
+    {"id": "berlin_de", "place": "Berlin, Germany", "scene": "industrial loft workspace in a creative district"},
+    {"id": "toronto_ca", "place": "Toronto, Canada", "scene": "high-rise workspace overlooking the CN Tower"},
+    {"id": "amsterdam_nl", "place": "Amsterdam, Netherlands", "scene": "canal-side home office with moody evening lights"},
+]
+
 SYSTEM_PROMPT = """
 You are planning a faceless YouTube video for a channel called Vibe Coding Sessions.
 
 Output strict JSON only with these fields:
-theme, title, music_prompt, visual_prompt, description, tags, duration_minutes
+title, music_prompt, visual_prompt, description, tags, duration_minutes
 
 Rules:
+- The concept is always a software developer coding in the provided real world place.
 - The image must always show a software developer working on a laptop with code visible.
-- The environment must vary naturally across day, sunset, night, beach, mountain, forest, office, and home settings.
-- Avoid repeating city at night too often.
+- Use the selected place and atmosphere exactly; do not change to another city.
 - No text in the image.
 - Music must be instrumental only, no vocals, no lyrics.
-- Titles must be natural, YouTube-friendly, and specific.
+- Titles must be natural, YouTube-friendly, and must include the selected place.
 - Keep tags short and relevant.
 - duration_minutes must be an integer.
 """
@@ -69,60 +78,106 @@ def _extract_json(text: str) -> dict[str, Any]:
     return json.loads(cleaned)
 
 
-def _pick_fallback_scenario() -> tuple[str, str, str, str]:
-    return (
-        random.choice(TIMES_OF_DAY),
-        random.choice(PLACES),
-        random.choice(WEATHER),
-        random.choice(MOODS),
+def _recent_place_ids(history: list[dict[str, Any]]) -> list[str]:
+    recent = [item.get("place_id") for item in history if item.get("place_id")]
+    return recent[-10:]
+
+
+def _pick_place(history: list[dict[str, Any]]) -> dict[str, str]:
+    blocked = set(_recent_place_ids(history))
+    available = [item for item in WORLD_PLACES if item["id"] not in blocked]
+    if not available:
+        available = WORLD_PLACES[:]
+    return random.choice(available)
+
+
+def _base_idea(place_cfg: dict[str, str], time_of_day: str, weather: str, mood: str) -> dict[str, Any]:
+    place = place_cfg["place"]
+    scene = place_cfg["scene"]
+    atmosphere = f"{time_of_day}, {weather}"
+    title = f"{time_of_day.title()} Coding in {place} | Deep Focus for Developers ({Config.video_duration_minutes} Hours)"
+    visual_prompt = (
+        f"A software developer coding on a laptop with code visible on screen, in {scene}, "
+        f"during {time_of_day}, with {weather}, cinematic lighting, immersive atmosphere, no text."
     )
+    music_prompt = (
+        f"Instrumental ambient electronic music for {mood}, inspired by {place} at {time_of_day}, "
+        f"steady energy for programming and deep work, no vocals, no lyrics."
+    )
+    description = (
+        f"Code in flow with a developer session set in {place}. "
+        f"This mix captures {time_of_day} energy with {weather} for long programming and study blocks."
+    )
+    tags = [
+        "coding music",
+        "focus music",
+        "programming",
+        place.split(',')[0].lower(),
+        "deep work",
+    ]
+    return {
+        "place_id": place_cfg["id"],
+        "place": place,
+        "time_of_day": time_of_day,
+        "weather": weather,
+        "mood": mood,
+        "atmosphere": atmosphere,
+        "theme": f"{mood.title()} coding in {place}",
+        "title": title[:100],
+        "music_prompt": music_prompt,
+        "visual_prompt": visual_prompt,
+        "description": description,
+        "tags": tags,
+        "duration_minutes": Config.video_duration_minutes,
+        "short_hook": f"{time_of_day.title()} coding in {place}",
+    }
 
 
 def _fallback_idea(history: list[dict[str, Any]]) -> dict[str, Any]:
-    time_of_day, place, weather, mood = _pick_fallback_scenario()
-
-    theme = f"{mood.title()} in a {place}"
-    title = f"Coding Focus Music • {place.title()} • {time_of_day.title()}".replace("Workspace", "").strip()
-
-    visual_prompt = (
-        f"A software developer working on a laptop with code visible on screen, "
-        f"in a {place}, during {time_of_day}, with {weather}, cinematic lighting, "
-        f"immersive atmosphere, high quality digital illustration, no text."
+    place_cfg = _pick_place(history)
+    idea = _base_idea(
+        place_cfg=place_cfg,
+        time_of_day=random.choice(TIMES_OF_DAY),
+        weather=random.choice(WEATHER),
+        mood=random.choice(MOODS),
     )
-
-    music_prompt = (
-        f"Instrumental ambient electronic music for {mood}, calm and immersive, "
-        f"designed for programming and deep work, no vocals, no lyrics, smooth progression."
-    )
-
-    idea = {
-        "theme": theme[:120],
-        "title": title[:95],
-        "music_prompt": music_prompt,
-        "visual_prompt": visual_prompt,
-        "description": (
-            "Ambient coding music for developers, makers, and deep work sessions. "
-            "Designed for focus, flow, and long programming blocks."
-        ),
-        "tags": [
-            "coding music",
-            "focus music",
-            "programming",
-            "deep work",
-            "ambient music",
-        ],
-        "duration_minutes": Config.video_duration_minutes,
-    }
-    logger.info(
-        "Fallback idea generated | title=%r | theme=%r | duration_minutes=%d",
-        idea["title"], idea["theme"], idea["duration_minutes"],
-    )
+    logger.info("Fallback idea generated | title=%r | place=%r", idea["title"], idea["place"])
     return idea
 
 
+def _normalize_idea(idea: dict[str, Any], place_cfg: dict[str, str], time_of_day: str, weather: str, mood: str) -> dict[str, Any]:
+    base = _base_idea(place_cfg, time_of_day, weather, mood)
+    merged = {**base, **(idea or {})}
+    merged["place_id"] = place_cfg["id"]
+    merged["place"] = place_cfg["place"]
+    merged["time_of_day"] = time_of_day
+    merged["weather"] = weather
+    merged["mood"] = mood
+    merged["atmosphere"] = f"{time_of_day}, {weather}"
+    merged["duration_minutes"] = int(merged.get("duration_minutes") or Config.video_duration_minutes)
+    if not isinstance(merged.get("tags"), list) or not merged["tags"]:
+        merged["tags"] = base["tags"]
+    title = str(merged.get("title") or "").strip()
+    if place_cfg["place"].lower() not in title.lower():
+        merged["title"] = base["title"]
+    merged["title"] = merged["title"][:100]
+    if not merged.get("visual_prompt"):
+        merged["visual_prompt"] = base["visual_prompt"]
+    if not merged.get("music_prompt"):
+        merged["music_prompt"] = base["music_prompt"]
+    if not merged.get("description"):
+        merged["description"] = base["description"]
+    merged["theme"] = merged.get("theme") or base["theme"]
+    merged["short_hook"] = f"{time_of_day.title()} coding in {place_cfg['place']}"
+    return merged
+
+
 def generate_video_idea(history: list[dict[str, Any]]) -> dict[str, Any]:
-    logger.info("Generating video idea | history_entries=%d | gemini_key_set=%s",
-                len(history), bool(Config.gemini_api_key))
+    logger.info("Generating video idea | history_entries=%d | gemini_key_set=%s", len(history), bool(Config.gemini_api_key))
+    place_cfg = _pick_place(history)
+    time_of_day = random.choice(TIMES_OF_DAY)
+    weather = random.choice(WEATHER)
+    mood = random.choice(MOODS)
 
     if not Config.gemini_api_key:
         logger.warning("GEMINI_API_KEY not set — using fallback idea generator.")
@@ -132,23 +187,24 @@ def generate_video_idea(history: list[dict[str, Any]]) -> dict[str, Any]:
         {
             "title": item.get("title"),
             "theme": item.get("theme"),
+            "place": item.get("place"),
+            "place_id": item.get("place_id"),
         }
         for item in history[-12:]
     ]
-    logger.info("Passing %d recent videos to Gemini for context", len(recent))
 
     user_prompt = {
         "recent_videos": recent,
-        "times_of_day": TIMES_OF_DAY,
-        "places": PLACES,
-        "weather_options": WEATHER,
-        "moods": MOODS,
+        "blocked_place_ids": _recent_place_ids(history),
+        "selected_place": place_cfg,
+        "selected_time_of_day": time_of_day,
+        "selected_weather": weather,
+        "selected_mood": mood,
         "target_channel": "Vibe Coding Sessions",
         "duration_minutes": Config.video_duration_minutes,
     }
 
     try:
-        logger.info("Calling Gemini | model=%s", Config.gemini_text_model)
         client = genai.Client(api_key=Config.gemini_api_key)
         response = client.models.generate_content(
             model=Config.gemini_text_model,
@@ -157,31 +213,13 @@ def generate_video_idea(history: list[dict[str, Any]]) -> dict[str, Any]:
                 {"role": "user", "parts": [{"text": json.dumps(user_prompt, ensure_ascii=False)}]},
             ],
         )
-
         text = getattr(response, "text", None)
         if not text:
             raise RuntimeError("Gemini returned an empty response — no text content.")
-
-        logger.debug("Gemini raw response: %s", text[:500])
         idea = _extract_json(text)
-        idea["duration_minutes"] = int(idea.get("duration_minutes") or Config.video_duration_minutes)
-
-        if not isinstance(idea.get("tags"), list):
-            logger.warning("Gemini returned non-list tags, using defaults.")
-            idea["tags"] = [
-                "coding music",
-                "focus music",
-                "programming",
-                "deep work",
-                "ambient music",
-            ]
-
-        logger.info(
-            "Gemini idea accepted | title=%r | theme=%r | duration_minutes=%d | tags=%s",
-            idea.get("title"), idea.get("theme"), idea.get("duration_minutes"), idea.get("tags"),
-        )
+        idea = _normalize_idea(idea, place_cfg, time_of_day, weather, mood)
+        logger.info("Gemini idea accepted | title=%r | place=%r | duration_minutes=%d", idea["title"], idea["place"], idea["duration_minutes"])
         return idea
-
     except Exception as exc:
         logger.warning("Gemini idea generation failed, falling back | error=%s", exc)
         return _fallback_idea(history)

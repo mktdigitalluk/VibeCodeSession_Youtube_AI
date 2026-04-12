@@ -1,0 +1,56 @@
+from agents.idea_agent import generate_idea
+from services.state_service import *
+from services.history_service import *
+from services.music_service import generate_music
+from services.video_service import generate_video
+from services.image_service import generate_thumbnail
+from services.youtube_service import upload
+
+def main():
+    state = load_state()
+    history = load_history()
+
+    # IDEA
+    if not is_done(state, "idea"):
+        idea = generate_idea(history)
+        state["idea"] = idea
+        mark_done(state, "idea")
+        save_state(state)
+
+        history.append(idea)
+        save_history(history)
+    else:
+        idea = state["idea"]
+
+    print("IDEA:", idea["title"])
+
+    # THUMBNAIL
+    if not is_done(state, "thumbnail"):
+        print("STEP: thumbnail")
+        generate_thumbnail()
+        mark_done(state, "thumbnail")
+        save_state(state)
+
+    # MUSIC
+    if not is_done(state, "music"):
+        print("STEP: music")
+        generate_music()
+        mark_done(state, "music")
+        save_state(state)
+
+    # VIDEO
+    if not is_done(state, "video"):
+        print("STEP: video")
+        generate_video()
+        mark_done(state, "video")
+        save_state(state)
+
+    # UPLOAD
+    if not is_done(state, "upload"):
+        print("STEP: upload")
+        upload()
+        mark_done(state, "upload")
+        save_state(state)
+
+if __name__ == "__main__":
+    main()

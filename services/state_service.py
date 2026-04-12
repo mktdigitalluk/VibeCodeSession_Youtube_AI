@@ -1,26 +1,27 @@
-"""
-state_service.py — daily job checkpoint system.
-
-State files live in data/state_YYYYMMDD.json (outside temp/).
-This means temp media files can be cleaned up safely without losing checkpoint info.
-
-Step names used throughout the pipeline:
-  idea | thumbnail | music | video | upload_long | short | upload_short | history
-"""
-
 import json
 import logging
-from datetime import date, datetime, timezone
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from config import Config
 
 logger = logging.getLogger(__name__)
 
 
+def _data_dir() -> Path:
+    return Path(Config.history_file).parent
+
+
 def _state_path(job_id: str) -> Path:
-    """State files live in data/ so they survive temp/ cleanup."""
-    return Path(Config.history_file).parent / f"state_{job_id}.json"
+    return _data_dir() / f"state_{job_id}.json"
+
+
+def _now_local() -> datetime:
+    try:
+        return datetime.now(ZoneInfo(Config.business_timezone))
+    except Exception:
+        return datetime.now()
 
 
 def load_state(job_id: str) -> dict:
@@ -41,19 +42,14 @@ def load_state(job_id: str) -> dict:
 def save_state(job_id: str, state: dict) -> None:
     path = _state_path(job_id)
     path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
-    except Exception as exc:
-        logger.error("Failed to save state file %s: %s", path, exc)
-        raise
+    path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def init_state(job_id: str) -> dict:
-    """Create and persist an empty state for a new job."""
     state = {
         "job_id": job_id,
-        "date": date.today().isoformat(),
-        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "date": _now_local().date().isoformat(),
+        "created_at_local": _now_local().isoformat(),
         "steps": {},
     }
     save_state(job_id, state)
@@ -62,12 +58,10 @@ def init_state(job_id: str) -> dict:
 
 
 def mark_done(job_id: str, state: dict, step: str, data: dict = None) -> dict:
-    """Mark a step as done, merge optional data, and persist."""
-    if "steps" not in state:
-        state["steps"] = {}
+    state.setdefault("steps", {})
     state["steps"][step] = {
         "status": "done",
-        "completed_at": datetime.now(timezone.utc).isoformat(),
+        "completed_at_local": _now_local().isoformat(),
         **(data or {}),
     }
     save_state(job_id, state)
@@ -76,25 +70,38 @@ def mark_done(job_id: str, state: dict, step: str, data: dict = None) -> dict:
 
 
 def is_done(state: dict, step: str, file_path: str = None) -> bool:
-    """
-    Returns True only when:
-    - the step is marked 'done' in state, AND
-    - if file_path is provided, the file actually exists on disk.
-
-    The file check protects against the case where temp files were cleaned up
-    but the state still says the step was completed.
-    """
     step_data = state.get("steps", {}).get(step, {})
     if step_data.get("status") != "done":
         return False
     if file_path and not Path(file_path).exists():
-        logger.info(
-            "Step %r is marked done but file is missing (%s) — will re-run.",
-            step, file_path,
-        )
+        logger.info("Step %r is marked done but file is missing (%s) — will re-run.", step, file_path)
         return False
     return True
 
 
 def today_job_id() -> str:
-    return f"job_{date.today().strftime('%Y%m%d')}"
+    return f"job_{_now_local().strftime('%Y%m%d')}"
+
+
+def list_state_paths() -> list[Path]:
+    return sorted(_data_dir().glob('state_job_*.json'))
+
+
+def first_incomplete_job_id() -> str | None:
+    required_steps = ["idea", "thumbnail", "music", "video", "upload_long", "short", "upload_short", "history"]
+    for path in sorted(list_state_paths(), reverse=True):
+        try:
+            state = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        steps = state.get("steps", {})
+        if any(steps.get(step, {}).get("status") != "done" for step in required_steps):
+            job_id = state.get("job_id")
+            if job_id:
+                logger.info("Found incomplete prior job to resume | job_id=%s", job_id)
+                return job_id
+    return None
+
+
+def resolve_job_id() -> str:
+    return first_incomplete_job_id() or today_job_id()

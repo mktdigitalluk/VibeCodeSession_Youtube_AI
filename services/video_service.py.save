@@ -1,0 +1,80 @@
+from pathlib import Path
+import logging
+import subprocess
+import tempfile
+
+logger = logging.getLogger(__name__)
+
+
+def _run(cmd):
+    cmd_str = [str(part) for part in cmd]
+    logger.info("ffmpeg command: %s", " ".join(cmd_str))
+    result = subprocess.run(cmd_str, check=True, capture_output=True, text=True)
+    if result.stderr:
+        logger.debug("ffmpeg stderr: %s", result.stderr[-2000:])
+
+
+def create_video(image_path, audio_path, output_path: Path, duration_seconds: int, loop_audio: bool) -> str:
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    logger.info(
+        "Creating video | image=%s | audio=%s | duration_seconds=%d | loop_audio=%s",
+        image_path, audio_path, duration_seconds, loop_audio,
+    )
+
+    if loop_audio:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            looped_audio = Path(tmpdir) / "looped_audio.mp3"
+            _run([
+                "ffmpeg", "-y",
+                "-stream_loop", "-1",
+                "-i", str(audio_path),
+                "-t", str(duration_seconds),
+                "-c:a", "libmp3lame",
+                str(looped_audio),
+            ])
+            final_audio = looped_audio
+            audio_filters = []
+            logger.info("Mode: loop audio to exact target duration")
+            _run([
+                "ffmpeg", "-y",
+                "-loop", "1",
+                "-framerate", "2",
+                "-i", str(image_path),
+                "-i", str(final_audio),
+                "-t", str(duration_seconds),
+                "-c:v", "libx264",
+                "-preset", "veryfast",
+                "-tune", "stillimage",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-pix_fmt", "yuv420p",
+                "-movflags", "+faststart",
+                str(output_path),
+            ])
+    else:
+        logger.info("Mode: preserve exact video duration and pad remaining audio with silence")
+        _run([
+    "ffmpeg", "-y",
+    "-loop", "1",
+    "-framerate", "2",
+    "-i", str(image_path),
+    "-i", str(audio_path),
+    "-af", "apad",
+    "-t", str(duration_seconds),
+    "-c:v", "libx264",
+    "-preset", "veryfast",
+    "-tune", "stillimage",
+    "-c:a", "aac",
+    "-b:a", "256k",
+    "-ar", "48000",
+    "-ac", "2",
+    "-pix_fmt", "yuv420p",
+    "-movflags", "+faststart",
+    str(output_path),
+])
+
+    size_mb = output_path.stat().st_size / (1024 * 1024)
+    logger.info("Video created | path=%s | size_mb=%.1f", output_path, size_mb)
+    return str(output_path)

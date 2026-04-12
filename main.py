@@ -10,7 +10,7 @@ from services.short_service import generate_short
 from services.youtube_service import upload_video_and_thumbnail
 from services.history_service import load_history, save_history
 from services.cleanup_service import cleanup_temp_dir
-from services.state_service import load_state, init_state, mark_done, is_done, today_job_id
+from services.state_service import load_state, init_state, mark_done, is_done, resolve_job_id
 from config import Config
 
 # ===== LOG CONFIG =====
@@ -46,8 +46,8 @@ def run() -> None:
     Path("temp").mkdir(parents=True, exist_ok=True)
     Path("data").mkdir(parents=True, exist_ok=True)
 
-    # Date-based job_id — one job per calendar day
-    job_id = today_job_id()
+    # Resume the most recent incomplete job; otherwise start today's job
+    job_id = resolve_job_id()
     job_dir = Path("temp") / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
 
@@ -200,6 +200,12 @@ def run() -> None:
                 "job_id": job_id,
                 "title": idea["title"],
                 "theme": idea["theme"],
+                "place_id": idea.get("place_id"),
+                "place": idea.get("place"),
+                "time_of_day": idea.get("time_of_day"),
+                "weather": idea.get("weather"),
+                "mood": idea.get("mood"),
+                "atmosphere": idea.get("atmosphere"),
                 "duration_minutes": idea["duration_minutes"],
                 "tags": idea["tags"],
                 "youtube_video_id": long_upload["video_id"],

@@ -23,7 +23,7 @@ class Config:
     # Video
     video_duration_minutes: int = int(os.getenv("VIDEO_DURATION_MINUTES", "60"))
     video_privacy_status: str = os.getenv("VIDEO_PRIVACY_STATUS", "private")
-    loop_audio: bool = os.getenv("LOOP_AUDIO", "false").lower() == "true"
+    loop_audio: bool = os.getenv("LOOP_AUDIO", "true").lower() == "true"
 
     # YouTube OAuth
     youtube_client_id: str = os.getenv("YOUTUBE_CLIENT_ID", "")
@@ -39,5 +39,6 @@ class Config:
     history_size: int = int(os.getenv("HISTORY_SIZE", "20"))
 
     # Runtime
-    cleanup_on_success: bool = os.getenv("CLEANUP_ON_SUCCESS", "true").lower() == "true"
+    cleanup_on_success: bool = os.getenv("CLEANUP_ON_SUCCESS", "false").lower() == "true"
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
+    business_timezone: str = os.getenv("BUSINESS_TIMEZONE", "America/Sao_Paulo")
